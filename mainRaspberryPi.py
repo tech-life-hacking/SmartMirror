@@ -8,10 +8,166 @@ import struct
 import math
 import threading
 import os
-import subprocess
 import sys
 import time
 import requests
+import blynklib
+
+BLYNK_AUTH = 'BW-OY7yiT4hVfh2BzXR_x3xy23j7Nkyr'
+
+# initialize Blynk
+blynk = blynklib.Blynk(BLYNK_AUTH)
+
+class Threadblynk(threading.Thread):
+    def __init__(self):
+        super(Threadblynk, self).__init__()
+
+    def run(self):
+        while True:
+            blynk.run()
+
+# register handler for virtual pin V0 write event
+@blynk.handle_event('write V0')
+def write_virtual_pin_handler(pin, value):
+    if value == ['1']:
+        tvstate.turnTV()
+        tvstate.changingtimer()
+
+# register handler for virtual pin V2 write event
+@blynk.handle_event('write V2')
+def write_virtual_pin_handler(pin, value):
+    if value == ['1']:
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubeload',
+                    headers=headers, data=dataPlayload)
+
+# register handler for virtual pin V3 write event
+@blynk.handle_event('write V3')
+def write_virtual_pin_handler(pin, value):
+    if value == ['1']:
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                    headers=headers, data=dataPlay)
+
+# register handler for virtual pin V4 write event
+@blynk.handle_event('write V4')
+def write_virtual_pin_handler(pin, value):
+    if value == ['1']:
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                    headers=headers, data=dataPause)
+
+class State():
+    def turnTV(self):
+        raise NotImplementedError("turnTV is abstractmethod")
+
+    def changingtimer(self):
+        raise NotImplementedError("changingtimer is abstractmethod")
+
+    def facedetectedswitch(self):
+        raise NotImplementedError("facedetectedswitch is abstractmethod")
+
+    def getyoutube(self):
+        raise NotImplementedError("getyoutube is abstractmethod")
+
+class TVON(State):
+    def turnTV(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPause)
+        os.system('echo "standby 0" | cec-client -s')
+        tvstate.change_state("tvon2off")
+
+    def changingtimer(self):
+        pass
+
+    def facedetectedswitch(self):
+        pass
+
+    def getyoutube(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPlay)
+
+class TVON2OFF(State):
+    def turnTV(self):
+        pass
+
+    def changingtimer(self):
+        time.sleep(30)
+        tvstate.change_state("tvoff")
+
+    def facedetectedswitch(self):
+        pass
+
+    def getyoutube(self):
+        pass
+
+class TVOFF(State):
+    def turnTV(self):
+        os.system('echo "on 0" | cec-client -s')
+        tvstate.change_state("tvoff2on")
+
+    def changingtimer(self):
+        pass
+
+    def facedetectedswitch(self):
+        os.system('echo "on 0" | cec-client -s')
+        tvstate.change_state("tvoff2on")
+
+    def getyoutube(self):
+        pass
+
+class TVOFF2ON(State):
+    def turnTV(self):
+        pass
+
+    def changingtimer(self):
+        time.sleep(30)
+        tvstate.change_state("tvon")
+
+    def facedetectedswitch(self):
+        pass
+
+    def getyoutube(self):
+        pass
+
+class Context:
+    def __init__(self):
+        self.tvon = TVON()
+        self.tvon2off = TVON2OFF()
+        self.tvoff = TVOFF()
+        self.tvoff2on = TVOFF2ON()
+        self.state = self.tvon
+
+    def change_state(self, switchsignal):
+        if switchsignal == "tvon":
+            self.state = self.tvon
+        elif switchsignal == "tvon2off":
+            self.state = self.tvon2off
+        elif switchsignal == "tvoff":
+            self.state = self.tvoff
+        elif switchsignal == "tvoff2on":
+            self.state = self.tvoff2on
+        else:
+            raise ValueError("change_state method must be in {}".format(["tvon", "tvon2off", "tvoff", "tvoff2on"]))
+
+    def turnTV(self):
+        self.state.turnTV()
+
+    def changingtimer(self):
+        self.state.changingtimer()
+
+    def facedetectedswitch(self):
+        self.state.facedetectedswitch()
+
+    def getyoutube(self):
+        self.state.getyoutube()
+
+def facedetection():
+    while True:
+        data = b''
+        data = s.recv(1024)
+
+        if data == b'Face Detected':
+            tvstate.facedetectedswitch()
+            tvstate.changingtimer()
+            tvstate.getyoutube()
 
 class FrameSegment(object):
     """ 
@@ -20,7 +176,7 @@ class FrameSegment(object):
     """
     MAX_DGRAM = 2**16
     MAX_IMAGE_DGRAM = MAX_DGRAM - 64 # extract 64 bytes in case UDP frame overflown
-    def __init__(self, sock, port, addr="IPAdress"):
+    def __init__(self, sock, port, addr="192.168.100.135"):
         self.s = sock
         self.port = port
         self.addr = addr
@@ -53,12 +209,18 @@ def sendFrame():
     cv2.destroyAllWindows()
     s.close()
 
+def hello():
+    print("hello, world")
+
 if __name__ == "__main__":
+
+
     headers = {
         'content-type': 'application/json',
     }
 
     dataPlayload = '{"type": "playlist", "listType": "playlist", "id": "PLVlobiWMiFZBKf2Xy8d9f8Z0PJd41zSV9", "shuffle": "true", "loop": "true", "autoplay": "true"}'
+    dataPlay = '{"command": "playVideo"}'
     dataPause = '{"command": "pauseVideo"}'
 
     # Set up UDP socket
@@ -68,39 +230,18 @@ if __name__ == "__main__":
 
     cap = cv2.VideoCapture(0)
 
-    thread_1 = threading.Thread(target=sendFrame)
-    thread_1.start()
-    state = 1
-    youtubestate = 0
+    threadudp = threading.Thread(target=sendFrame)
+    threadudp.start()
+
     lasttime = time.time()
     t = 0
 
-    while True:
-        data = b''
-        data = s.recv(1024)
+    thblynk = Threadblynk()
+    thblynk.start()
 
-        if state:
-            t += time.time() - lasttime
-            print(t)
-            if youtubestate == 0: 
-                if t > 30:
-                    requests.post('http://192.168.100.134:8080/api/module/youtube/youtubeload',
-                                  headers=headers, data=dataPlayload)
-                    youtubestate = 1
-            if t > 300:
-                if youtubestate:
-                    requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
-                                  headers=headers, data=dataPause)
-                    youtubestate = 0
-                os.system('echo "standby 0" | cec-client -s')
-                state = 0
-                t = 0
+    tvstate = Context()
 
-        
-        if data == b'Face Detected':
-            t = 0
-            if state == 0:
-                os.system('echo "on 0" | cec-client -s')
-                state = 1
+    t = threading.Timer(300.0, tvstate.turnTV())
 
-        lasttime = time.time()
+    threadfacedetection = threading.Thread(target=facedetection)
+    threadfacedetection.start()
