@@ -66,6 +66,12 @@ class State():
 
     def getyoutube(self):
         raise NotImplementedError("getyoutube is abstractmethod")
+    
+    def playYouTube(self):
+        NotImplementedError("playYouTube is abstractmethod")
+
+    def pauseYouTube(self):
+        NotImplementedError("pauseYouTube is abstractmethod")
 
 class TVON(State):
     def turnTV(self):
@@ -83,6 +89,14 @@ class TVON(State):
     def getyoutube(self):
         requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
                       headers=headers, data=dataPlay)
+    
+    def playYouTube(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPlay)
+    
+    def pauseYouTube(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPause)
 
 class TVON2OFF(State):
     def turnTV(self):
@@ -96,6 +110,12 @@ class TVON2OFF(State):
         pass
 
     def getyoutube(self):
+        pass
+
+    def playYouTube(self):
+        pass
+
+    def pauseYouTube(self):
         pass
 
 class TVOFF(State):
@@ -113,6 +133,12 @@ class TVOFF(State):
     def getyoutube(self):
         pass
 
+    def playYouTube(self):
+        pass
+
+    def pauseYouTube(self):
+        pass
+
 class TVOFF2ON(State):
     def turnTV(self):
         pass
@@ -125,6 +151,12 @@ class TVOFF2ON(State):
         pass
 
     def getyoutube(self):
+        pass
+
+    def playYouTube(self):
+        pass
+
+    def pauseYouTube(self):
         pass
 
 class Context:
@@ -159,6 +191,12 @@ class Context:
     def getyoutube(self):
         self.state.getyoutube()
 
+    def playYouTube(self):
+        self.state.playYouTube()
+
+    def pauseYouTube(self):
+        self.state.pauseYouTube()
+
 def facedetection():
     while True:
         data = b''
@@ -168,6 +206,17 @@ def facedetection():
             tvstate.facedetectedswitch()
             tvstate.changingtimer()
             tvstate.getyoutube()
+
+def handrecognition():
+    while True:
+        data = b''
+        data = s.recv(1024)
+
+        if data == b'Pause':
+            tvstate.pauseYouTube()
+
+        if data == b'Play':
+            tvstate.playYouTube()
 
 class FrameSegment(object):
     """ 
@@ -241,7 +290,9 @@ if __name__ == "__main__":
 
     tvstate = Context()
 
-    t = threading.Timer(300.0, tvstate.turnTV())
+    # t = threading.Timer(300.0, tvstate.turnTV())
 
     threadfacedetection = threading.Thread(target=facedetection)
     threadfacedetection.start()
+
+
