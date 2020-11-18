@@ -95,7 +95,7 @@ class HandTracker():
 
     @staticmethod
     def _sigm(x):
-        return 1 / (1 + np.exp(-x))
+        return 1.0 / (1.0 + np.exp(-x))
 
     @staticmethod
     def _pad1(x):

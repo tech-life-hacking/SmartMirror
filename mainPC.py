@@ -208,58 +208,36 @@ def facerecognition(frame):
     return frame, flag
 
 
-def dump_buffer(s):
-    """ Emptying buffer frame """
-    while True:
-        seg, addr = s.recvfrom(MAX_DGRAM)
-        print(seg[0])
-        if struct.unpack("B", seg[0:1])[0] == 1:
-            print("finish emptying buffer")
-            break
-
-
 def main():
-    """ Getting image udp frame &
-    concate before decode and output image """
-
-    # Set up socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(('IP Adress', 12345))
-    dat = b''
-    dump_buffer(s)
-
-    while True:
-        seg, addr = s.recvfrom(MAX_DGRAM)
-        if struct.unpack("B", seg[0:1])[0] > 1:
-            dat += seg[1:]
-        else:
-            dat += seg[1:]
+    cap = cv2.VideoCapture(0)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect(('192.168.100.134', 50007))
+        while True:
+            _, frame = cap.read()
             try:
-                img = cv2.imdecode(np.fromstring(dat, dtype=np.uint8), 1)
-                img, flag = facerecognition(img)
-                img, idx = handgesture(img)
-                print(indexes[idx])
-                cv2.imshow('frame', img)
+                frame, flag = facerecognition(frame)
+                frame, idx = handgesture(frame)
+                cv2.imshow('frame', frame)
                 if flag:
-                    s.sendto(b'Face Detected', addr)
+                    s.sendall(b'Face Detected')
                     flag = 0
                 else:
-                    s.sendto(b'No Detected', addr)
+                    s.sendall(b'No Detected')
+
                 if indexes[idx] == 'palm_opened':
-                    s.sendto(b'Pause', addr)
+                    s.sendall(b'Pause')
                 elif indexes[idx] == 'peace':
-                    s.sendto(b'Play', addr)
+                    s.sendall(b'Play')
                 else:
-                    s.sendto(b'No Detected', addr)
+                    s.sendall(b'No Detected')
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
             except:
                 pass
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-            dat = b''
 
-    # cap.release()
+    cap.release()
     cv2.destroyAllWindows()
-    s.close()
 
 
 if __name__ == "__main__":
