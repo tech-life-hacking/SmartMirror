@@ -2,8 +2,10 @@ import csv
 import cv2
 import numpy as np
 import tensorflow as tf
+import warnings
 
 from src.non_maximum_suppression import non_max_suppression_fast
+warnings.filterwarnings('ignore')
 
 
 class HandTracker():
@@ -139,7 +141,7 @@ class HandTracker():
         probabilities = probabilities[detecion_mask]
 
         if candidate_detect.shape[0] == 0:
-            print("No hands found")
+            #print("No hands found")
             return None, None, None
 
         # Pick the best bounding box with non maximum suppression

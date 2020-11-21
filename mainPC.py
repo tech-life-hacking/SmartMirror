@@ -5,12 +5,9 @@ import cv2
 import numpy as np
 import socket
 import struct
-import face_recognition
 from src.hand_tracker import HandTracker
 import vptree
 from sklearn.preprocessing import normalize
-
-MAX_DGRAM = 2**16
 
 WINDOW = "Hand Tracking"
 PALM_MODEL_PATH = "models/palm_detection_without_custom_op.tflite"
@@ -23,6 +20,32 @@ CONNECTION_COLOR = (255, 0, 0)
 HULL_COLOR = (0, 0, 255)
 THICKNESS = 2
 HULL_THICKNESS = 2
+
+detector = HandTracker(
+    PALM_MODEL_PATH,
+    LANDMARK_MODEL_PATH,
+    ANCHORS_PATH,
+    box_shift=0.2,
+    box_enlarge=1.3
+)
+
+max_size = 400
+
+
+def get_pose(kp, box):
+
+    x0, y0 = 0, 0
+    box_width = np.linalg.norm(box[1] - box[0])
+    box_height = np.linalg.norm(box[3] - box[0])
+
+    x1 = ((kp[:, 0] - x0) * max_size) / box_width
+    y1 = ((kp[:, 1] - y0) * max_size) / box_height
+
+    a = np.array([x1, y1])
+    v = a.transpose().flatten()
+
+    return normalize([v], norm='l2')[0]
+
 
 indexes = ['swing', 'ok', 'index', 'three', 'thumbs',
            'palm_closed', 'palm_opened', 'peace', 'smile', 'fist']
@@ -45,23 +68,6 @@ poseData = np.array(
         [0.18620316, 0.20848493, 0.1534262, 0.21623465, 0.1260341, 0.19782164, 0.09503594, 0.19968312, 0.06283229, 0.20630055, 0.13811894, 0.12506329, 0.11950041, 0.08752148, 0.11655949, 0.06574876, 0.11584203, 0.04994573, 0.167047, 0.11787352, 0.17084832,
             0.07968003, 0.16905089, 0.10314258, 0.16184104, 0.12502938, 0.19173373, 0.12087494, 0.1971879, 0.08911833, 0.19370474, 0.116432, 0.185174, 0.13954724, 0.21385323, 0.12904313, 0.22037847, 0.1107641, 0.21645382, 0.12715677, 0.20674225, 0.14231086],
         [0.16870468, 0.23211507, 0.12977799, 0.20814243, 0.09943, 0.16382496, 0.1123175, 0.12978834, 0.14672848, 0.13607521, 0.13753864, 0.13317615, 0.14097033, 0.09809432, 0.14065007, 0.12935257, 0.14333271, 0.14504507, 0.16329045, 0.12753517, 0.16547387, 0.08546145, 0.16095263, 0.12244097, 0.15828503, 0.13600505, 0.18647549, 0.13310245, 0.19047755, 0.09372779, 0.18434687, 0.12874961, 0.18357106, 0.14497022, 0.20711118, 0.14537352, 0.20915552, 0.11293839, 0.20329643, 0.13409531, 0.20128276, 0.14754838]])
-
-max_size = 400
-
-
-def get_pose(kp, box):
-
-    x0, y0 = 0, 0
-    box_width = np.linalg.norm(box[1] - box[0])
-    box_height = np.linalg.norm(box[3] - box[0])
-
-    x1 = ((kp[:, 0] - x0) * max_size) / box_width
-    y1 = ((kp[:, 1] - y0) * max_size) / box_height
-
-    a = np.array([x1, y1])
-    v = a.transpose().flatten()
-
-    return normalize([v], norm='l2')[0]
 
 
 def similarity(v1, v2):
@@ -103,109 +109,20 @@ if HULL:
     hull_connections += pseudo_hull_connections
 else:
     connections += pseudo_hull_connections
-detector = HandTracker(
-    PALM_MODEL_PATH,
-    LANDMARK_MODEL_PATH,
-    ANCHORS_PATH,
-    box_shift=0.2,
-    box_enlarge=1.3
-)
 
 
 def handgesture(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     hand = detector(image)
     if hand[0] is not None and len(hand) > 0:
-        points = hand[0]
         box = hand[2]
         bkp = hand[4]
         kp = get_pose(bkp, box)
-
         res = tree.get_n_nearest_neighbors(kp, 1)[0]
         a = np.mean(res[1])
-        #print(res[0], np.where(idx_m == a)[0][0])
-        idx = np.where(idx_m == a)[0][0]
-        if res[0] < 0.2:
+        if res[0] < 0.13:
             idx = np.where(idx_m == a)[0][0]
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, indexes[idx], (20, 100),
-                        font, 2, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(frame, str(res[0]), (20, 30),
-                        font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-
-        if points is not None:
-            for point in points:
-                x, y = point
-                cv2.circle(frame, (int(x), int(y)), THICKNESS *
-                           2, POINT_COLOR, THICKNESS)
-            for connection in connections:
-                x0, y0 = points[connection[0]]
-                x1, y1 = points[connection[1]]
-                cv2.line(frame, (int(x0), int(y0)), (int(x1), int(y1)),
-                         CONNECTION_COLOR, THICKNESS)
-    return frame, idx
-
-
-known_face_encodings = []
-known_face_names = []
-face_locations = []
-face_encodings = []
-
-for i in range(5):
-    image = face_recognition.load_image_file(str(i)+".jpg")
-    face_encoding = face_recognition.face_encodings(image)[0]
-    known_face_encodings.append(face_encoding)
-    known_face_names.append(str(i))
-
-
-def facerecognition(frame):
-    # Resize frame of video to 1/4 size for faster face recognition processing
-    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-
-    # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-    rgb_small_frame = small_frame[:, :, ::-1]
-
-    # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(rgb_small_frame)
-    face_encodings = face_recognition.face_encodings(
-        rgb_small_frame, face_locations)
-
-    face_names = []
-    for face_encoding in face_encodings:
-        # See if the face is a match for the known face(s)
-        matches = face_recognition.compare_faces(
-            known_face_encodings, face_encoding)
-        name = "Unknown"
-
-        face_distances = face_recognition.face_distance(
-            known_face_encodings, face_encoding)
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
-            name = known_face_names[best_match_index]
-
-        face_names.append(name)
-
-    flag = 0
-    # Display the results
-    for (top, right, bottom, left), name in zip(face_locations, face_names):
-        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-        top *= 4
-        right *= 4
-        bottom *= 4
-        left *= 4
-
-        # Draw a box around the face
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-        # Draw a label with a name below the face
-        cv2.rectangle(frame, (left, bottom - 35),
-                      (right, bottom), (0, 0, 255), cv2.FILLED)
-        font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (left + 6, bottom - 6),
-                    font, 1.0, (255, 255, 255), 1)
-        flag = 1
-
-    return frame, flag
+            return idx
 
 
 def main():
@@ -214,30 +131,26 @@ def main():
         s.connect(('192.168.100.134', 50007))
         while True:
             _, frame = cap.read()
-            try:
-                frame, flag = facerecognition(frame)
-                frame, idx = handgesture(frame)
-                cv2.imshow('frame', frame)
-                if flag:
-                    s.sendall(b'Face Detected')
-                    flag = 0
-                else:
-                    s.sendall(b'No Detected')
 
+            try:
+                idx = handgesture(frame)
                 if indexes[idx] == 'palm_opened':
                     s.sendall(b'Pause')
                 elif indexes[idx] == 'peace':
                     s.sendall(b'Play')
+                elif indexes[idx] == 'ok':
+                    s.sendall(b'TurnTV')
                 else:
                     s.sendall(b'No Detected')
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
             except:
                 pass
 
-    cap.release()
-    cv2.destroyAllWindows()
+            cv2.imshow('frame', frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
 
 
 if __name__ == "__main__":
