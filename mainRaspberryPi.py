@@ -61,9 +61,6 @@ class State():
     def changingtimer(self):
         raise NotImplementedError("changingtimer is abstractmethod")
 
-    def facedetectedswitch(self):
-        raise NotImplementedError("facedetectedswitch is abstractmethod")
-
     def getyoutube(self):
         raise NotImplementedError("getyoutube is abstractmethod")
     
@@ -83,9 +80,6 @@ class TVON(State):
     def changingtimer(self):
         pass
 
-    def facedetectedswitch(self):
-        pass
-
     def getyoutube(self):
         requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
                       headers=headers, data=dataPlay)
@@ -103,11 +97,8 @@ class TVON2OFF(State):
         pass
 
     def changingtimer(self):
-        time.sleep(30)
+        time.sleep(10)
         tvstate.change_state("tvoff")
-
-    def facedetectedswitch(self):
-        pass
 
     def getyoutube(self):
         pass
@@ -126,10 +117,6 @@ class TVOFF(State):
     def changingtimer(self):
         pass
 
-    def facedetectedswitch(self):
-        os.system('echo "on 0" | cec-client -s')
-        tvstate.change_state("tvoff2on")
-
     def getyoutube(self):
         pass
 
@@ -144,7 +131,7 @@ class TVOFF2ON(State):
         pass
 
     def changingtimer(self):
-        time.sleep(30)
+        time.sleep(10)
         tvstate.change_state("tvon")
 
     def facedetectedswitch(self):
@@ -185,9 +172,6 @@ class Context:
     def changingtimer(self):
         self.state.changingtimer()
 
-    def facedetectedswitch(self):
-        self.state.facedetectedswitch()
-
     def getyoutube(self):
         self.state.getyoutube()
 
@@ -227,13 +211,9 @@ if __name__ == "__main__":
                         tvstate.pauseYouTube()
                     elif data == b'Play':
                         tvstate.playYouTube()
-                    else:
-                        pass
-
-                    if data == b'Face Detected':
-                        tvstate.facedetectedswitch()
+                    elif data == b'TurnTV':
+                        tvstate.turnTV()
                         tvstate.changingtimer()
-                        tvstate.getyoutube()
                     else:
                         pass
 
