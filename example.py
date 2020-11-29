@@ -144,7 +144,15 @@ while True:
     ret, frame = cap.read()
     frame = handgesture(frame)
     cv2.imshow(WINDOW, frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    k = cv2.waitKey(1) & 0xff  # wait keys
+    if k == ord('p'):
+        # save images with "p"
+        path = "/home/yuu/" + 'ok' + ".png"
+        cv2.imwrite(path, frame)  # save files
+
+        cv2.imshow(path, frame)  # show captured images
+    elif k == ord('q'):
+        # finish with "q"
         break
 
 cap.release()
