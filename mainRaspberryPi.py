@@ -38,14 +38,14 @@ def write_virtual_pin_handler(pin, value):
 def write_virtual_pin_handler(pin, value):
     if value == ['1']:
         requests.post('http://192.168.100.134:8080/api/module/youtube/youtubeload',
-                    headers=headers, data=dataPlayload)
+                    headers=headers, data=dataPlayload0)
 
 # register handler for virtual pin V3 write event
 @blynk.handle_event('write V3')
 def write_virtual_pin_handler(pin, value):
     if value == ['1']:
-        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
-                    headers=headers, data=dataPlay)
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubeload',
+                    headers=headers, data=dataPlayload1)
 
 # register handler for virtual pin V4 write event
 @blynk.handle_event('write V4')
@@ -54,23 +54,17 @@ def write_virtual_pin_handler(pin, value):
         requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
                     headers=headers, data=dataPause)
 
-class State():
+class TVState():
     def turnTV(self):
         raise NotImplementedError("turnTV is abstractmethod")
 
     def changingtimer(self):
         raise NotImplementedError("changingtimer is abstractmethod")
-
-    def getyoutube(self):
-        raise NotImplementedError("getyoutube is abstractmethod")
     
-    def playYouTube(self):
-        NotImplementedError("playYouTube is abstractmethod")
+    def turnYouTube(self):
+        raise NotImplementedError("turnYouTube is abstractmethod")
 
-    def pauseYouTube(self):
-        NotImplementedError("pauseYouTube is abstractmethod")
-
-class TVON(State):
+class TVON(TVState):
     def turnTV(self):
         requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
                       headers=headers, data=dataPause)
@@ -80,36 +74,22 @@ class TVON(State):
     def changingtimer(self):
         pass
 
-    def getyoutube(self):
-        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
-                      headers=headers, data=dataPlay)
-    
-    def playYouTube(self):
-        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
-                      headers=headers, data=dataPlay)
-    
-    def pauseYouTube(self):
-        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
-                      headers=headers, data=dataPause)
+    def turnYouTube(self):
+        youtubestate.turnYouTube()
+        youtubestate.changingtimer()
 
-class TVON2OFF(State):
+class TVON2OFF(TVState):
     def turnTV(self):
         pass
 
     def changingtimer(self):
-        time.sleep(10)
+        time.sleep(5)
         tvstate.change_state("tvoff")
 
-    def getyoutube(self):
+    def turnYouTube(self):
         pass
 
-    def playYouTube(self):
-        pass
-
-    def pauseYouTube(self):
-        pass
-
-class TVOFF(State):
+class TVOFF(TVState):
     def turnTV(self):
         os.system('echo "on 0" | cec-client -s')
         tvstate.change_state("tvoff2on")
@@ -117,16 +97,10 @@ class TVOFF(State):
     def changingtimer(self):
         pass
 
-    def getyoutube(self):
+    def turnYouTube(self):
         pass
 
-    def playYouTube(self):
-        pass
-
-    def pauseYouTube(self):
-        pass
-
-class TVOFF2ON(State):
+class TVOFF2ON(TVState):
     def turnTV(self):
         pass
 
@@ -134,19 +108,10 @@ class TVOFF2ON(State):
         time.sleep(10)
         tvstate.change_state("tvon")
 
-    def facedetectedswitch(self):
+    def turnYouTube(self):
         pass
 
-    def getyoutube(self):
-        pass
-
-    def playYouTube(self):
-        pass
-
-    def pauseYouTube(self):
-        pass
-
-class Context:
+class TVContext:
     def __init__(self):
         self.tvon = TVON()
         self.tvon2off = TVON2OFF()
@@ -172,14 +137,75 @@ class Context:
     def changingtimer(self):
         self.state.changingtimer()
 
-    def getyoutube(self):
-        self.state.getyoutube()
+    def turnYouTube(self):
+        self.state.turnYouTube()
 
-    def playYouTube(self):
-        self.state.playYouTube()
+class YouTubeState():
+    def turnYouTube(self):
+        raise NotImplementedError("turnYouTube is abstractmethod")
 
-    def pauseYouTube(self):
-        self.state.pauseYouTube()
+    def changingtimer(self):
+        raise NotImplementedError("changingtimer is abstractmethod")
+
+class YouTubeON(YouTubeState):
+    def turnYouTube(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPause)
+        youtubestate.change_state("youtubeon2off")
+
+    def changingtimer(self):
+        pass
+
+class YouTubeON2OFF(YouTubeState):
+    def turnYouTube(self):
+        pass
+
+    def changingtimer(self):
+        time.sleep(3)
+        youtubestate.change_state("youtubeoff")
+
+class YouTubeOFF(YouTubeState):
+    def turnYouTube(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPlay)
+        youtubestate.change_state("youtubeoff2on")
+
+    def changingtimer(self):
+        pass
+
+class YouTubeOFF2ON(YouTubeState):
+    def turnYouTube(self):
+        pass
+
+    def changingtimer(self):
+        time.sleep(3)
+        youtubestate.change_state("youtubeon")
+
+class YouTubeContext:
+    def __init__(self):
+        self.youtubeon = YouTubeON()
+        self.youtubeon2off = YouTubeON2OFF()
+        self.youtubeoff = YouTubeOFF()
+        self.youtubeoff2on = YouTubeOFF2ON()
+        self.state = self.youtubeoff
+
+    def change_state(self, switchsignal):
+        if switchsignal == "youtubeon":
+            self.state = self.youtubeon
+        elif switchsignal == "youtubeon2off":
+            self.state = self.youtubeon2off
+        elif switchsignal == "youtubeoff":
+            self.state = self.youtubeoff
+        elif switchsignal == "youtubeoff2on":
+            self.state = self.youtubeoff2on
+        else:
+            raise ValueError("change_state method must be in {}".format(["youtubeon", "youtubeon2off", "youtubeoff", "youtubeoff2on"]))
+
+    def turnYouTube(self):
+        self.state.turnYouTube()
+
+    def changingtimer(self):
+        self.state.changingtimer()
 
 if __name__ == "__main__":
 
@@ -187,14 +213,17 @@ if __name__ == "__main__":
         'content-type': 'application/json',
     }
 
-    dataPlayload = '{"type": "playlist", "listType": "playlist", "id": "PLVlobiWMiFZBKf2Xy8d9f8Z0PJd41zSV9", "shuffle": "true", "loop": "true", "autoplay": "true"}'
+    dataPlayload0 = '{"type": "playlist", "listType": "playlist", "id": "PLVlobiWMiFZBKf2Xy8d9f8Z0PJd41zSV9", "shuffle": "true", "loop": "true", "autoplay": "true"}'
+    dataPlayload1 = '{"type": "playlist", "listType": "playlist", "id": "PLVlobiWMiFZB-WzErl14EvUQ-OE7E3iTp", "shuffle": "true", "loop": "true", "autoplay": "true"}'
     dataPlay = '{"command": "playVideo"}'
     dataPause = '{"command": "pauseVideo"}'
 
     thblynk = Threadblynk()
     thblynk.start()
 
-    tvstate = Context()
+    tvstate = TVContext()
+    youtubestate = YouTubeContext()
+
 
     # t = threading.Timer(300.0, tvstate.turnTV())
 
@@ -207,10 +236,8 @@ if __name__ == "__main__":
                 while True:
                     data = b''
                     data = conn.recv(1024)
-                    if data == b'Pause':
-                        tvstate.pauseYouTube()
-                    elif data == b'Play':
-                        tvstate.playYouTube()
+                    if data == b'TurnYouTube':
+                        tvstate.turnYouTube()
                     elif data == b'TurnTV':
                         tvstate.turnTV()
                         tvstate.changingtimer()
