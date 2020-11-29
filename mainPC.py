@@ -120,9 +120,28 @@ def handgesture(frame):
         kp = get_pose(bkp, box)
         res = tree.get_n_nearest_neighbors(kp, 1)[0]
         a = np.mean(res[1])
-        if res[0] < 0.13:
+        if res[0] < 0.2:
             idx = np.where(idx_m == a)[0][0]
             return idx
+
+
+idxlist = []
+
+
+def idxcounts(idx):
+    idxlist.append(idx)
+    if len(list(set(idxlist))) == 1 and len(idxlist) == 3:
+        return idx
+    elif len(list(set(idxlist))) == 1 and len(idxlist) < 3:
+        return 0
+    elif len(idxlist) > 3:
+        idxlist.clear()
+        idxlist.append(idx)
+        return 0
+    else:
+        idxlist.clear()
+        idxlist.append(idx)
+        return 0
 
 
 def main():
@@ -131,14 +150,12 @@ def main():
         s.connect(('192.168.100.134', 50007))
         while True:
             _, frame = cap.read()
-
             try:
                 idx = handgesture(frame)
-                if indexes[idx] == 'palm_opened':
-                    s.sendall(b'Pause')
-                elif indexes[idx] == 'peace':
-                    s.sendall(b'Play')
-                elif indexes[idx] == 'ok':
+                idx = idxcounts(idx)
+                if indexes[idx] == 'fist':
+                    s.sendall(b'TurnYouTube')
+                elif indexes[idx] == 'palm_opened':
                     s.sendall(b'TurnTV')
                 else:
                     s.sendall(b'No Detected')
