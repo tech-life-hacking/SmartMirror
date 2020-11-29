@@ -8,6 +8,7 @@ import struct
 from src.hand_tracker import HandTracker
 import vptree
 from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt
 
 WINDOW = "Hand Tracking"
 PALM_MODEL_PATH = "models/palm_detection_without_custom_op.tflite"
@@ -115,25 +116,98 @@ def handgesture(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     hand = detector(image)
     if hand[0] is not None and len(hand) > 0:
+        points = hand[0]
         box = hand[2]
         bkp = hand[4]
         kp = get_pose(bkp, box)
         res = tree.get_n_nearest_neighbors(kp, 1)[0]
+        if points is not None:
+            for point in points:
+                x, y = point
+                cv2.circle(frame, (int(x), int(y)), THICKNESS *
+                           2, POINT_COLOR, THICKNESS)
+            for connection in connections:
+                x0, y0 = points[connection[0]]
+                x1, y1 = points[connection[1]]
+                cv2.line(frame, (int(x0), int(y0)), (int(x1), int(y1)),
+                         CONNECTION_COLOR, THICKNESS)
+
         a = np.mean(res[1])
-        if res[0] < 0.13:
-            idx = np.where(idx_m == a)[0][0]
-            return idx
+        idx = np.where(idx_m == a)[0][0]
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(frame, indexes[idx], (20, 100),
+                    font, 2, (255, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(frame, str(res[0]), (20, 30),
+                    font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+        return idx, res[0]
+
+
+def histogram(indexes, datalist):
+    datalists = []
+    for index in indexes:
+        eachdatalist = []
+        for data in datalist:
+            if data[0] == indexes.index(index):
+                eachdatalist.append(data[1])
+        try:
+            datalists.append(eachdatalist)
+        except:
+            pass
+    plt.hist(datalists, label=indexes, bins=15)
+    plt.legend(loc='upper right')
+    plt.xlabel('CosineDistance')
+    plt.ylabel('frequency')
+    plt.title('background')
+    plt.show()
+
+
+def histsum(indexes, datalist, threshold):
+    datalists = []
+    for index in indexes:
+        eachdatalist = []
+        for data in datalist:
+            if data[0] == indexes.index(index):
+                eachdatalist.append(data[1])
+        try:
+            datalists.append(eachdatalist)
+        except:
+            pass
+    histograms = []
+    for datalist in datalists:
+        datahist = np.histogram(datalist, bins=10, range=(0.1, 0.3))
+        histograms.append(datahist)
+    sumlist = []
+    for histogram in histograms:
+        sum = 0
+        for a, b in zip(histogram[0], histogram[1] <= threshold):
+            if b:
+                sum += a
+        sumlist.append(sum)
+    sums = np.sum(sumlist)
+    sumsum = sumlist/sums
+    plt.bar(indexes, sumsum, align="center")
+    plt.xticks(fontsize=5)
+    for x, y in zip(indexes, sumsum):
+        y = round(y, 2)
+        plt.text(x, y, y, ha='center', va='bottom')
+    plt.xlabel('index')
+    plt.ylabel('relative frequency')
+    plt.title('background')
+    plt.show()
 
 
 def main():
     cap = cv2.VideoCapture(0)
+    datalist = []
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect(('192.168.100.134', 50007))
         while True:
             _, frame = cap.read()
 
             try:
-                idx = handgesture(frame)
+                idx, res = handgesture(frame)
+                datas = [idx, res]
+                datalist.append(datas)
                 if indexes[idx] == 'palm_opened':
                     s.sendall(b'Pause')
                 elif indexes[idx] == 'peace':
@@ -151,6 +225,10 @@ def main():
                 break
 
         cap.release()
+        histogram(indexes, datalist)
+        histsum(indexes, datalist, 0.1)
+        histsum(indexes, datalist, 0.2)
+        histsum(indexes, datalist, 0.3)
 
 
 if __name__ == "__main__":

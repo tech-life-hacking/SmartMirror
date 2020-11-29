@@ -120,21 +120,19 @@ def handgesture(frame):
         if res[0] < 0.2:
             idx = np.where(idx_m == a)[0][0]
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, indexes[idx], (20, 100),
-                        font, 2, (255, 0, 0), 2, cv2.LINE_AA)
-            cv2.putText(frame, str(res[0]), (20, 30),
-                        font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            x0, y0 = hand[2][0]
+            x1, y1 = hand[2][1]
+            x2, y2 = hand[2][2]
+            x3, y3 = hand[2][3]
+            cv2.line(frame, (int(x0), int(y0)), (int(x1), int(y1)),
+                     CONNECTION_COLOR, THICKNESS)
+            cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)),
+                     CONNECTION_COLOR, THICKNESS)
+            cv2.line(frame, (int(x2), int(y2)), (int(x3), int(y3)),
+                     CONNECTION_COLOR, THICKNESS)
+            cv2.line(frame, (int(x3), int(y3)), (int(x0), int(y0)),
+                     CONNECTION_COLOR, THICKNESS)
 
-        if points is not None:
-            for point in points:
-                x, y = point
-                cv2.circle(frame, (int(x), int(y)), THICKNESS *
-                           2, POINT_COLOR, THICKNESS)
-            for connection in connections:
-                x0, y0 = points[connection[0]]
-                x1, y1 = points[connection[1]]
-                cv2.line(frame, (int(x0), int(y0)), (int(x1), int(y1)),
-                         CONNECTION_COLOR, THICKNESS)
     return frame
 
 
@@ -144,8 +142,18 @@ while True:
     ret, frame = cap.read()
     frame = handgesture(frame)
     cv2.imshow(WINDOW, frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    k = cv2.waitKey(1) & 0xff  # キー入力を待つ
+    if k == ord('p'):
+        # 「p」キーで画像を保存
+        path = "/home/yuu" + 'palm' + ".png"
+        cv2.imwrite(path, frame)  # ファイル保存
+
+        cv2.imshow(path, frame)  # キャプチャした画像を表示
+    elif k == ord('q'):
+        # 「q」キーが押されたら終了する
         break
 
+
+# cap.release()
 cap.release()
 cv2.destroyAllWindows()

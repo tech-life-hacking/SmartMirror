@@ -126,10 +126,12 @@ def handgesture(frame):
                         font, 1, (255, 0, 0), 2, cv2.LINE_AA)
 
         if points is not None:
-            for point in points:
+            for i, point in enumerate(points):
                 x, y = point
                 cv2.circle(frame, (int(x), int(y)), THICKNESS *
                            2, POINT_COLOR, THICKNESS)
+                cv2.putText(frame, str(i), (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (255, 255, 255), 2, cv2.LINE_AA)
             for connection in connections:
                 x0, y0 = points[connection[0]]
                 x1, y1 = points[connection[1]]
@@ -147,5 +149,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# cap.release()
 cap.release()
 cv2.destroyAllWindows()
