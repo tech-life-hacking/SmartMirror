@@ -91,6 +91,8 @@ class TVON2OFF(TVState):
 
 class TVOFF(TVState):
     def turnTV(self):
+        requests.post('http://192.168.100.134:8080/api/module/youtube/youtubecontrol',
+                      headers=headers, data=dataPlay)
         os.system('echo "on 0" | cec-client -s')
         tvstate.change_state("tvoff2on")
 
