@@ -9,6 +9,7 @@ from src.hand_tracker import HandTracker
 import vptree
 from sklearn.preprocessing import normalize
 
+RaspberryPiIPAdress = 'YourRaspberryPiIPAdress'
 WINDOW = "Hand Tracking"
 PALM_MODEL_PATH = "models/palm_detection_without_custom_op.tflite"
 LANDMARK_MODEL_PATH = "models/hand_landmark.tflite"
@@ -147,7 +148,7 @@ def idxcounts(idx):
 def main():
     cap = cv2.VideoCapture(0)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect(('192.168.100.134', 50007))
+        s.connect((RaspberryPiIPAdress, 50007))
         while True:
             _, frame = cap.read()
             try:
